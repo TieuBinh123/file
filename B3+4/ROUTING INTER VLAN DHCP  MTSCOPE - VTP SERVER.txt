@@ -1,0 +1,124 @@
+ROUTING INTER VLAN - DHCP MULTI-SCOPE - VTP MODE
+
+I. ROUTING INTER-VLAN
+1. Tạo VLAN tại CORESW
+Switch(config)#hostname CORESWITCH
+CORESWITCH(config)#VLAN 60
+CORESWITCH(config-vlan)#NAME DAY_A
+CORESWITCH(config-vlan)#VLAN 50
+CORESWITCH(config-vlan)#NAME DAY_B
+CORESWITCH(config-vlan)#VLAN 35
+CORESWITCH(config-vlan)#NAME DAY_D
+CORESWITCH(config-vlan)#VLAN 15
+CORESWITCH(config-vlan)#VLAN 35
+CORESWITCH(config-vlan)#NAME DAY_C
+CORESWITCH(config-vlan)#VLAN 15
+CORESWITCH(config-vlan)#NAME DAY_D
+CORESWITCH(config-vlan)#EX
+CORESWITCH(config)#EX
+2. Gắp các cổng vào VLAN tương ứng
+CORESWITCH#config t
+Enter configuration commands, one per line.  End with CNTL/Z.
+CORESWITCH(config)#int range f0/2 - f0/4
+CORESWITCH(config-if-range)#switchport mode access
+CORESWITCH(config-if-range)#switchport access vlan 60
+CORESWITCH(config-if-range)#ex
+CORESWITCH(config)#int range f0/5 - f0/7
+CORESWITCH(config-if-range)#switchport mode access
+CORESWITCH(config-if-range)#switchport access vlan 50
+CORESWITCH(config-if-range)#ex
+CORESWITCH(config)#int range f0/8 - f0/9
+CORESWITCH(config-if-range)#switchport mode access
+CORESWITCH(config-if-range)#switchport access vlan 35
+CORESWITCH(config-if-range)#ex
+CORESWITCH(config)#int f0/10
+CORESWITCH(config-if)#switchport mode access
+CORESWITCH(config-if)#switchport access vlan 15
+3. Mở TRUNK tại Coreswitch
+Xác định Port nào cần mở (VD: nối về Router)
+CORESWITCH>en
+CORESWITCH#config t
+Enter configuration commands, one per line.  End with CNTL/Z.
+CORESWITCH(config)#int f0/1
+CORESWITCH(config-if)#switchport mode trunk
+4. Tạo Sub-interface và gán cho VLAN ID tương ứng
+* Tạo trên Router
+Router(config)#hostname R1
+R1(config)#int f0/0
+R1(config-if)#no shut
+
+R1(config-subif)#int f0/0.1
+R1(config-subif)#encapsulation dot1Q 60
+R1(config-subif)#ip add 192.168.1.1 255.255.255.192
+R1(config-subif)#ex
+R1(config-subif)#int f0/0.2
+R1(config-subif)#encapsulation dot1Q 50
+R1(config-subif)#ip add 192.168.1.65 255.255.255.192
+R1(config-subif)#ex
+R1(config-subif)#int f0/0.3
+R1(config-subif)#encapsulation dot1Q 35
+R1(config-subif)#ip add 192.168.1.129 255.255.255.192
+R1(config-subif)#ex
+R1(config-subif)#int f0/0.4
+R1(config-subif)#encapsulation dot1Q 15
+R1(config-subif)#ip add 192.168.1.193 255.255.255.224
+R1(config-subif)#ex
+II. DHCP MULTISCOPE
+5. Cấu hình DHCP Multiscope cho các VLSM
+Scope Range cho VLAN 60
+192.168.1.2 --> 192.168.1.62 (GW: 192.168.1.1) 255.255.255.192
+Scope Range cho VLAN 50
+192.168.1.66 --> 192.168.1.126 (GW: 192.168.1.65) 255.255.255.192
+Scope Range cho VLAN 35
+192.168.1.130 --> 192.168.1.190 (GW: 192.168.1.129) 255.255.255.192
+Scope Range cho VLAN 15
+192.168.1.194 --> 192.168.1.222 (GW: 192.168.1.193) 255.255.255.224
+//
+R1(config)#ip dhcp pool DAY_A
+R1(dhcp-config)#network 192.168.1.0 255.255.255.192
+R1(dhcp-config)#default-router 192.168.1.1
+R1(dhcp-config)#ex
+R1(config)#ip dhcp pool DAY_B
+R1(dhcp-config)#network 192.168.1.64 255.255.255.192
+R1(dhcp-config)#default-router 192.168.1.65
+R1(dhcp-config)#ex
+R1(config)#ip dhcp pool DAY_C
+R1(dhcp-config)#network 192.168.1.128 255.255.255.192
+R1(dhcp-config)#default-router 192.168.1.129
+R1(dhcp-config)#ex
+R1(config)#ip dhcp pool DAY_D
+R1(dhcp-config)#network 192.168.1.192 255.255.255.224
+R1(dhcp-config)#default-router 192.168.1.193
+R1(dhcp-config)#ex
+R1(config)#ex
+
+p/s: Lưu giá trị tránh mất điện mất cấu hình
+R1#copy running-config startup-config 
+HOẶC
+R1#wr
+Building configuration...
+[OK]
+
+III. VTP MODE
+S9#sh vtp status 
+1. Cấu hình VTP MODE SERVER cho CORESW
+CORESWITCH(config)#vtp mode server
+Device mode already VTP SERVER.
+CORESWITCH(config)#vtp domain susu.com
+Changing VTP domain name from NULL to susu.com
+CORESWITCH(config)#vtp password 123
+Setting device VLAN database password to 123
+CORESWITCH(config)#
+2. Cấu hình VTP MODE CLIENT cho S9
+S9(config)#vtp mode client
+Setting device to VTP CLIENT mode.
+S9(config)#vtp domain susu.com
+Changing VTP domain name from NULL to susu.com
+S9(config)#vtp password 123
+Setting device VLAN database password to 123
+3. Cấu hình TRUNk cho port đang kết nối giữa Server và Client
+CORESWITCH(config)#int f0/11
+CORESWITCH(config-if)#switchport mode trunk
+//
+S9(config)#int f0/4
+S9(config-if)#switchport mode trunk
